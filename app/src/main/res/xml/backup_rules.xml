@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+        <exclude domain="sharedpref" path="hpu_cookies.xml" />
+        <exclude domain="sharedpref" path="hpu_cred.xml" />
+        <exclude domain="sharedpref" path="hpu_hw.xml" />
+</full-backup-content>

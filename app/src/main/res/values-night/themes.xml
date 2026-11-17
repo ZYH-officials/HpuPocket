@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 深色下窗口背景也要是深色，否则冷启动和转场的一瞬间会闪白 -->
+    <style name="Theme.HpuTimetable" parent="android:Theme.Material.NoActionBar" />
+</resources>
