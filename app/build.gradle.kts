@@ -19,7 +19,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // main 分支 false（隐藏开发者选项）；dev 分支改 true
-        buildConfigField("boolean", "DEV_OPTIONS", "false")
+        buildConfigField("boolean", "DEV_OPTIONS", "true")
     }
 
     buildTypes {
