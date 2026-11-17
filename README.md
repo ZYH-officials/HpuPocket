@@ -19,10 +19,10 @@
 
 到 [Releases](https://github.com/ZYH-officials/HpuPocket/releases) 下载最新 APK，Android 12（API 31）及以上可直接安装：
 
-| 包 | 说明 |
-|---|---|
-| `HpuPocket-<版本>.apk` | 稳定版（main 分支），日常使用 |
-| `HpuPocket-<版本>-dev.apk` | 开发版（dev 分支），设置页多开发者选项 |
+| 包 | 说明 | 下载位置 |
+|---|---|---|
+| `HpuPocket-<版本>.apk` | 稳定版（main 分支），日常使用 | [正式发行版](https://github.com/ZYH-officials/HpuPocket/releases/latest) |
+| `HpuPocket-<版本>-dev.apk` | 开发版（dev 分支），设置页多开发者选项 | 预发行版（Releases 页标 Pre-release） |
 
 - 正式签名发行；从旧的 debug 签名包升级需**卸载重装**（会丢登录态与缓存），此后同签名可直接覆盖升级
 - 小米 / 华为 / OPPO / vivo 等机型：装好后在设置页按提示开启**电池优化白名单**与**自启动**，否则上课提醒会被系统推迟
