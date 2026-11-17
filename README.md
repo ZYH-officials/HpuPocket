@@ -24,7 +24,8 @@
 - Android Studio（或 JDK 17+）打开本目录
 - `./gradlew assembleRelease`
 - minSdk 31，targetSdk 37；UI 为 Jetpack Compose + Material 3 Expressive（material3 1.5.0-rc01）
-- 仓库不含签名密钥，release 默认使用本机 debug 密钥签名；正式分发请配置自己的 keystore
+- 仓库不含签名密钥：根目录放一份 `keystore.properties`（storeFile/storePassword/keyAlias/keyPassword，已 gitignore）即用正式签名；没有则自动退回 debug 签名，克隆即可编译
+- 正式签名与 debug 签名互不兼容，更换签名需卸载重装
 
 ## 隐私
 

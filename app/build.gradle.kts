@@ -3,6 +3,15 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// 正式签名：根目录放 keystore.properties（已 gitignore）就用正式密钥；
+// 没有这个文件（比如别人克隆仓库）自动退回 debug 签名，保证谁都能编译。
+val keystoreProps = java.util.Properties()
+val keystoreFile = rootProject.file("keystore.properties")
+val hasReleaseKey = keystoreFile.exists()
+if (hasReleaseKey) {
+    keystoreFile.inputStream().use { keystoreProps.load(it) }
+}
+
 android {
     namespace = "com.hpu.timetable"
     compileSdk {
@@ -22,12 +31,23 @@ android {
         buildConfigField("boolean", "DEV_OPTIONS", "false")
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // 复用调试密钥签名：这样正式包能直接覆盖已装的 debug 包，
-            // 不会因为签名不同被迫卸载（卸载会丢登录态和课表缓存）。
-            // 将来要上架/分发再换独立 keystore，但那样必须卸载重装。
-            signingConfig = signingConfigs.getByName("debug")
+            // 有正式密钥用正式签名；没有则退回 debug 签名（开源克隆者可直接编译）。
+            // 注意：正式签名与 debug 签名互不兼容，换签名必须卸载重装，会丢登录态和缓存。
+            signingConfig = if (hasReleaseKey) signingConfigs.getByName("release")
+                else signingConfigs.getByName("debug")
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
