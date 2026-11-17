@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,7 +7,7 @@ plugins {
 
 // 正式签名：根目录放 keystore.properties（已 gitignore）就用正式密钥；
 // 没有这个文件（比如别人克隆仓库）自动退回 debug 签名，保证谁都能编译。
-val keystoreProps = java.util.Properties()
+val keystoreProps = Properties()
 val keystoreFile = rootProject.file("keystore.properties")
 val hasReleaseKey = keystoreFile.exists()
 if (hasReleaseKey) {
