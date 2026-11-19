@@ -28,13 +28,13 @@ android {
         // - versionName 用三段式 主.次.修：修 bug 升修，加功能升次，大改升主（2.1.0 → 2.1.1 → 2.2.0 → 3.0.0）
         // - versionCode 每次对外发布（含预发行）+1，永不复用；正式版晚于其预发行发布，号自然更高
         // - 预发行后缀递增：2.2.0-dev.1 → 2.2.0-beta.1 → 2.2.0-rc.1 → 2.2.0 正式
-        versionCode = 5
-        versionName = "2.2.0-dev.1"
+        versionCode = 6
+        versionName = "2.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // main 分支 false（隐藏开发者选项）；dev 分支改 true
-        buildConfigField("boolean", "DEV_OPTIONS", "true")
+        buildConfigField("boolean", "DEV_OPTIONS", "false")
     }
 
     signingConfigs {
