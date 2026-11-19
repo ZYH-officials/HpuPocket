@@ -3,7 +3,7 @@
 <img src="docs/banner.png" alt="HpuPocket · 河理课表" width="100%">
 
 [![Release](https://img.shields.io/github/v/release/ZYH-officials/HpuPocket?style=flat&label=release)](https://github.com/ZYH-officials/HpuPocket/releases)
-[![License](https://img.shields.io/github/license/ZYH-officials/HpuPocket?style=flat)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-12%2B-3ddc84?style=flat&logo=android&logoColor=white)](#构建)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7f52ff?style=flat&logo=kotlin&logoColor=white)](#构建)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-M3%20Expressive-4285f4?style=flat&logo=jetpackcompose&logoColor=white)](#构建)
