@@ -318,6 +318,11 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
                 onBack = { subPage = null; tab = 0 },
             )
         }
+        "electricity" -> {
+            com.hpu.timetable.ui.whq.ElectricityScreen(
+                onBack = { subPage = null; tab = 0 },
+            )
+        }
         "overview" -> {
             com.hpu.timetable.ui.overview.WeekOverviewScreen(
                 onBack = { subPage = null; tab = 0 },
@@ -437,6 +442,7 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
                         onOpenScores = { subPage = "score" },
                         onOpenRooms = { subPage = "rooms" },
                         onOpenHomework = { subPage = "homework" },
+                        onOpenElectricity = { subPage = "electricity" },
                         hwConfigured = hwConfigured,
                         hwPending = hwPending,
                         hwRefreshing = hwRefreshing,

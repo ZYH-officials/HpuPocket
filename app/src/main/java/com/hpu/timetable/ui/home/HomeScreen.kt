@@ -68,6 +68,7 @@ fun HomeScreen(
     onOpenScores: () -> Unit = {},
     onOpenRooms: () -> Unit = {},
     onOpenHomework: () -> Unit = {},
+    onOpenElectricity: () -> Unit = {},
     /** 是否已经配置过作业平台 */
     hwConfigured: Boolean = false,
     /** 未完成作业数；null 表示还没统计过 */
@@ -237,6 +238,7 @@ fun HomeScreen(
         ) {
             clickableItem(onClick = onOpenRooms, label = "空闲教室", weight = 1f)
             clickableItem(onClick = onOpenHomework, label = "作业", weight = 1f)
+            clickableItem(onClick = onOpenElectricity, label = "宿舍电量", weight = 1f)
         }
 
         Spacer(Modifier.height(22.dp))
