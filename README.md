@@ -15,6 +15,8 @@
 
 > 非学校官方应用。课表、考试与成绩数据以教务系统为准。
 
+> 本项目为 AI 开发项目：代码与文档主要由 AI 编写，人工负责需求、验证与发布。
+
 ## 下载安装
 
 到 [Releases](https://github.com/ZYH-officials/HpuPocket/releases) 下载最新 APK，Android 12（API 31）及以上可直接安装：
