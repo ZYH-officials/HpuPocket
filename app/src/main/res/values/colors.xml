@@ -7,4 +7,21 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- 桌面小组件配色（浅色） -->
+    <color name="widget_background">#FFFEF7FF</color>
+    <color name="widget_text_primary">#FF1D1B20</color>
+    <color name="widget_text_secondary">#FF49454F</color>
+    <color name="widget_text_hint">#FF79747E</color>
+    <color name="widget_accent">#FF6750A4</color>
+
+    <!-- 课程左侧指示条色板（按课程名固定分配） -->
+    <color name="course_color_1">#FF4C7DF0</color>
+    <color name="course_color_2">#FF8155E0</color>
+    <color name="course_color_3">#FFE04C7A</color>
+    <color name="course_color_4">#FFE58A3A</color>
+    <color name="course_color_5">#FF3E9E6E</color>
+    <color name="course_color_6">#FF2A9D8F</color>
+    <color name="course_color_7">#FFD35C5C</color>
+    <color name="course_color_8">#FF5C6BC0</color>
 </resources>

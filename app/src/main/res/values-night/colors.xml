@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 桌面小组件配色（深色） -->
+    <color name="widget_background">#FF141218</color>
+    <color name="widget_text_primary">#FFE6E0E9</color>
+    <color name="widget_text_secondary">#FFCAC4D0</color>
+    <color name="widget_text_hint">#FF938F99</color>
+    <color name="widget_accent">#FFD0BCFF</color>
+
+    <!-- 课程左侧指示条色板（深色） -->
+    <color name="course_color_1">#FFA8C5FF</color>
+    <color name="course_color_2">#FFD0BCFF</color>
+    <color name="course_color_3">#FFFFB1C8</color>
+    <color name="course_color_4">#FFFFC58A</color>
+    <color name="course_color_5">#FF8FD9B6</color>
+    <color name="course_color_6">#FF86D8CE</color>
+    <color name="course_color_7">#FFFFB4A8</color>
+    <color name="course_color_8">#FFBAC3FF</color>
+</resources>

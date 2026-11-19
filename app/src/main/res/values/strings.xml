@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">河理课表</string>
+    <string name="widget_label">今日课表</string>
+    <string name="widget_description">在桌面显示今天的课程和教室</string>
 </resources>

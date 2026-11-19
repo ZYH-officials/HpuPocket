@@ -149,9 +149,12 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
         if (!NotifyScheduler.canScheduleExact(ctx)) askExactAlarm = true
     }
 
-    // 课表就绪后重排提醒
+    // 课表就绪后重排提醒、刷新桌面小组件
     LaunchedEffect(state) {
-        if (state is UiState.Ready) runCatching { NotifyScheduler.rescheduleAll(ctx) }
+        if (state is UiState.Ready) {
+            runCatching { NotifyScheduler.rescheduleAll(ctx) }
+            runCatching { com.hpu.timetable.widget.ScheduleWidget.updateAll(ctx) }
+        }
     }
 
     // 每次回到前台都补排一次：小米等机型清后台可能把闹钟清掉，
@@ -358,6 +361,7 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
                     exams = emptyList()
                     NotifyScheduler.cancelAll(ctx)
                     androidx.core.app.NotificationManagerCompat.from(ctx).cancelAll()
+                    runCatching { com.hpu.timetable.widget.ScheduleWidget.updateAll(ctx) }
                     com.hpu.timetable.data.jw.RoomCache.clear()
                     com.hpu.timetable.data.auth.SessionGate.expired = false
                     sessionExpired = false

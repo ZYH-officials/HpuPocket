@@ -47,11 +47,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hpu.timetable.data.Settings
 import com.hpu.timetable.data.TimetableRepository
+import com.hpu.timetable.update.UpdateChecker
+import com.hpu.timetable.update.UpdateInfo
 import com.hpu.timetable.notify.Notify
 import com.hpu.timetable.notify.NotifyScheduler
 import com.hpu.timetable.notify.SchedulePlanner
@@ -79,8 +82,12 @@ fun SettingsScreen(
     var examInput by remember { mutableStateOf("") }
     var confirmingLogout by remember { mutableStateOf(false) }
     var pickingTheme by remember { mutableStateOf(false) }
+    var showingWidget by remember { mutableStateOf(false) }
+    var updateChecking by remember { mutableStateOf(false) }
+    var updateResult by remember { mutableStateOf<UpdateInfo?>(null) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
 
     // 从相册选一张图，复制到 filesDir 当「我的」页背景
     val bgPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -229,6 +236,11 @@ fun SettingsScreen(
                 onClick = { pickingTheme = true },
             )
             SettingRow(
+                title = "桌面小组件",
+                desc = "今天的课和教室，放在桌面随时看",
+                onClick = { showingWidget = true },
+            )
+            SettingRow(
                 title = "更换背景图",
                 desc = "用在「我的」页顶部",
                 onClick = { bgPicker.launch("image/*") },
@@ -349,6 +361,25 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(14.dp))
             SectionTitle("关于")
+            SettingRow(
+                title = "检查更新",
+                desc = if (updateChecking) "正在检查…" else "当前 v" + UpdateChecker.currentVersion(),
+                onClick = {
+                    if (!updateChecking) {
+                        updateChecking = true
+                        scope.launch {
+                            val r = UpdateChecker.check(ctx)
+                            updateChecking = false
+                            r.onSuccess { info ->
+                                if (info != null) updateResult = info
+                                else toast(ctx, "已是最新版本")
+                            }.onFailure {
+                                toast(ctx, "检查失败：" + (it.message ?: "网络错误"))
+                            }
+                        }
+                    }
+                },
+            )
             SettingRow(
                 title = "关于河理课表",
                 desc = "版本与数据来源",
@@ -582,6 +613,69 @@ fun SettingsScreen(
         )
     }
 
+    if (showingWidget) {
+        AlertDialog(
+            onDismissRequest = { showingWidget = false },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = { Text("桌面小组件", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
+            text = {
+                Text(
+                    "在桌面显示今天的课程、教室和明天的预告，课多时卡片内可上下滑动。" +
+                        "放在桌面后长按可拖成 2×2 到 4×6。",
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showingWidget = false
+                    addWidgetToHome(ctx)
+                }) { Text("添加到桌面") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showingWidget = false }) { Text("关闭") }
+            },
+        )
+    }
+
+    updateResult?.let { info ->
+        AlertDialog(
+            onDismissRequest = { updateResult = null },
+            title = { Text("发现新版本 " + info.version, fontSize = 16.sp) },
+            text = {
+                Column {
+                    if (info.prerelease) {
+                        Text(
+                            "预发行版",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    Text(
+                        info.notes.trim().ifBlank { "更新内容见发行页" }.take(800),
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    updateResult = null
+                    runCatching { uriHandler.openUri(info.url) }
+                        .onFailure { toast(ctx, "打不开浏览器") }
+                }) { Text("去下载") }
+            },
+            dismissButton = {
+                TextButton(onClick = { updateResult = null }) { Text("以后再说") }
+            },
+        )
+    }
+
     if (confirmingLogout) {
         AlertDialog(
             onDismissRequest = { confirmingLogout = false },
@@ -698,6 +792,17 @@ private fun minuteLabel(minute: Int): String =
 
 private fun toast(ctx: android.content.Context, msg: String) {
     android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+}
+
+/** 桌面支持时直接拉起系统「添加小组件」确认框，否则提示手动添加路径 */
+private fun addWidgetToHome(ctx: android.content.Context) {
+    val mgr = android.appwidget.AppWidgetManager.getInstance(ctx)
+    val provider = android.content.ComponentName(
+        ctx, com.hpu.timetable.widget.ScheduleWidget::class.java
+    )
+    val ok = runCatching { mgr.isRequestPinAppWidgetSupported }.getOrDefault(false) &&
+        runCatching { mgr.requestPinAppWidget(provider, null, null) }.getOrDefault(false)
+    if (!ok) toast(ctx, "长按桌面空白处 → 小组件 → 河理课表")
 }
 
 /** 是否已在电池优化白名单里 */

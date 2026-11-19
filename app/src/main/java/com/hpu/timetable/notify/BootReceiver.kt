@@ -11,6 +11,7 @@ class BootReceiver : BroadcastReceiver() {
             intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
         ) {
             runCatching { NotifyScheduler.rescheduleAll(ctx) }
+            runCatching { com.hpu.timetable.widget.ScheduleWidget.updateAll(ctx) }
         }
     }
 }
