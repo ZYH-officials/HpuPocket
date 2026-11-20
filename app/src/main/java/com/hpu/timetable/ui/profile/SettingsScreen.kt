@@ -670,11 +670,11 @@ fun SettingsScreen(
             onDismissRequest = { widgetPinFailed = false },
             shape = RoundedCornerShape(20.dp),
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            title = { Text("小组件没加上", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
+            title = { Text("无法自动添加", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
             text = {
                 Text(
-                    "小米/红米需要允许「桌面快捷方式」，系统才会把小组件放到桌面。" +
-                        "也可以长按桌面空白处，从「小组件」里手动添加。",
+                    "可以长按桌面空白处，从「小组件」里手动添加。" +
+                        "小米/红米若仍不出现，请允许「桌面快捷方式」。",
                     fontSize = 12.sp,
                     lineHeight = 19.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -860,39 +860,14 @@ private fun toast(ctx: android.content.Context, msg: String) {
     android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
 }
 
-/** 请求桌面固定小组件；小米桌面会静默忽略未授权的请求，延迟核对是否真的出现 */
+/** 请求桌面固定小组件；系统返回 false 时才提示手动添加 */
 private fun addWidgetToHome(ctx: android.content.Context, onFailed: () -> Unit) {
     val mgr = android.appwidget.AppWidgetManager.getInstance(ctx)
     val provider = android.content.ComponentName(
         ctx, com.hpu.timetable.widget.ScheduleWidget::class.java
     )
-    val before = runCatching { mgr.getAppWidgetIds(provider).toSet() }.getOrDefault(emptySet())
     val requested = runCatching { mgr.requestPinAppWidget(provider, null, null) }.getOrDefault(false)
-    if (!requested) {
-        onFailed()
-        return
-    }
-    if (!isMiuiHome(ctx)) return
-
-    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-        val after = runCatching { mgr.getAppWidgetIds(provider).toSet() }.getOrDefault(emptySet())
-        if (after.any { it !in before }) {
-            com.hpu.timetable.widget.ScheduleWidget.updateAll(ctx)
-            toast(ctx, "已添加到桌面")
-        } else {
-            onFailed()
-        }
-    }, 1500)
-}
-
-private fun isMiuiHome(ctx: android.content.Context): Boolean {
-    if (android.os.Build.BRAND.lowercase() !in listOf("xiaomi", "redmi", "poco")) return false
-    val home = ctx.packageManager.resolveActivity(
-        android.content.Intent(android.content.Intent.ACTION_MAIN)
-            .addCategory(android.content.Intent.CATEGORY_HOME),
-        android.content.pm.PackageManager.MATCH_DEFAULT_ONLY,
-    )?.activityInfo?.packageName
-    return home == "com.miui.home"
+    if (!requested) onFailed()
 }
 
 /** 直达小米权限编辑页；打不开就退回应用详情页 */
