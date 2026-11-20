@@ -83,6 +83,7 @@ fun SettingsScreen(
     var confirmingLogout by remember { mutableStateOf(false) }
     var pickingTheme by remember { mutableStateOf(false) }
     var showingWidget by remember { mutableStateOf(false) }
+    var widgetPinFailed by remember { mutableStateOf(false) }
     var updateChecking by remember { mutableStateOf(false) }
     var updateResult by remember { mutableStateOf<UpdateInfo?>(null) }
     val ctx = LocalContext.current
@@ -151,8 +152,8 @@ fun SettingsScreen(
         }
         Text(
             "设置",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
         )
 
@@ -224,7 +225,6 @@ fun SettingsScreen(
                 onClick = { openAutoStartSettings(ctx) },
             )
 
-            Spacer(Modifier.height(14.dp))
             SectionTitle("外观")
             SettingRow(
                 title = "深色模式",
@@ -277,7 +277,6 @@ fun SettingsScreen(
                 onClick = { labInput = ""; pastingLab = true },
             )
 
-            Spacer(Modifier.height(14.dp))
             SectionTitle("考试安排")
             SettingRow(
                 title = "粘贴页面源码",
@@ -285,7 +284,6 @@ fun SettingsScreen(
                 onClick = { examInput = ""; pastingExam = true },
             )
 
-            Spacer(Modifier.height(14.dp))
             SectionTitle("诊断")
             SettingRow(
                 title = "导出日志",
@@ -299,7 +297,6 @@ fun SettingsScreen(
 
             // 开发者选项只在 dev 分支开放（BuildConfig.DEV_OPTIONS）
             if (com.hpu.timetable.BuildConfig.DEV_OPTIONS) {
-                Spacer(Modifier.height(14.dp))
                 SectionTitle("开发者选项")
                 SettingRow(
                     title = "测试周概览通知",
@@ -359,7 +356,6 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
             SectionTitle("关于")
             SettingRow(
                 title = "检查更新",
@@ -386,7 +382,6 @@ fun SettingsScreen(
                 onClick = onOpenAbout,
             )
 
-            Spacer(Modifier.height(14.dp))
             SectionTitle("账号")
             SettingRow(
                 title = "退出登录",
@@ -402,9 +397,11 @@ fun SettingsScreen(
     if (pastingLab) {
         AlertDialog(
             onDismissRequest = { pastingLab = false },
-            title = { Text("粘贴实验平台课表 JSON", fontSize = 16.sp) },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = { Text("粘贴实验平台课表 JSON", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
             text = {
-                Column {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                     Text(
                         "实验平台课表页 → F12 → Network → listStuYearterm → 复制响应",
                         fontSize = 11.sp,
@@ -434,9 +431,11 @@ fun SettingsScreen(
     if (pastingExam) {
         AlertDialog(
             onDismissRequest = { pastingExam = false },
-            title = { Text("粘贴考试页面 HTML", fontSize = 16.sp) },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = { Text("粘贴考试页面 HTML", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
             text = {
-                Column {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                     Text(
                         "教务「我的考试」→ 查看网页源代码 → 全选复制",
                         fontSize = 11.sp,
@@ -475,9 +474,10 @@ fun SettingsScreen(
                         Row(
                             Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 48.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
-                                    if (on) MaterialTheme.colorScheme.primaryContainer
+                                    if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
                                     else MaterialTheme.colorScheme.surface
                                 )
                                 .clickable {
@@ -486,18 +486,18 @@ fun SettingsScreen(
                                     replan()
                                     pickingLead = false
                                 }
-                                .padding(horizontal = 14.dp, vertical = 13.dp),
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 min.toString() + " 分钟",
                                 fontSize = 14.sp,
                                 fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (on) MaterialTheme.colorScheme.onPrimaryContainer
+                                color = if (on) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f),
                             )
-                            if (on) Text("✓", fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            if (on) Text("✓", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -520,9 +520,10 @@ fun SettingsScreen(
                             Box(
                                 Modifier
                                     .weight(1f)
+                                    .heightIn(min = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        if (on) MaterialTheme.colorScheme.primaryContainer
+                                        if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
                                         else MaterialTheme.colorScheme.surface
                                     )
                                     .clickable {
@@ -530,14 +531,14 @@ fun SettingsScreen(
                                         Settings.setWeekSummarySchedule(ctx, d, weekMinute)
                                         replan()
                                     }
-                                    .padding(vertical = 11.dp),
+                                    .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     weekDayLabel(d),
                                     fontSize = 13.sp,
                                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (on) MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = if (on) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurface,
                                 )
                             }
@@ -556,9 +557,10 @@ fun SettingsScreen(
                             Row(
                                 Modifier
                                     .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        if (on) MaterialTheme.colorScheme.primaryContainer
+                                        if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
                                         else MaterialTheme.colorScheme.surface
                                     )
                                     .clickable {
@@ -573,11 +575,11 @@ fun SettingsScreen(
                                     minuteLabel(m),
                                     fontSize = 14.sp,
                                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (on) MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = if (on) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f),
                                 )
-                                if (on) Text("✓", fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                if (on) Text("✓", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -590,19 +592,42 @@ fun SettingsScreen(
     if (pickingTheme) {
         AlertDialog(
             onDismissRequest = { pickingTheme = false },
-            title = { Text("深色模式") },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = { Text("深色模式", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
             text = {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(
                         "system" to "跟随系统",
                         "light" to "浅色",
                         "dark" to "深色",
                     ).forEach { (mode, label) ->
-                        TextButton(onClick = {
-                            onThemeChange(mode)
-                            pickingTheme = false
-                        }) {
-                            Text(if (mode == themeMode) "✓ " + label else label)
+                        val on = mode == themeMode
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (on) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                                    else MaterialTheme.colorScheme.surface
+                                )
+                                .clickable {
+                                    onThemeChange(mode)
+                                    pickingTheme = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                label,
+                                fontSize = 14.sp,
+                                fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (on) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (on) Text("✓", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -631,7 +656,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showingWidget = false
-                    addWidgetToHome(ctx)
+                    addWidgetToHome(ctx) { widgetPinFailed = true }
                 }) { Text("添加到桌面") }
             },
             dismissButton = {
@@ -640,10 +665,45 @@ fun SettingsScreen(
         )
     }
 
+    if (widgetPinFailed) {
+        AlertDialog(
+            onDismissRequest = { widgetPinFailed = false },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = { Text("小组件没加上", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
+            text = {
+                Text(
+                    "小米/红米需要允许「桌面快捷方式」，系统才会把小组件放到桌面。" +
+                        "也可以长按桌面空白处，从「小组件」里手动添加。",
+                    fontSize = 12.sp,
+                    lineHeight = 19.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    widgetPinFailed = false
+                    openShortcutPermission(ctx)
+                }) { Text("去设置") }
+            },
+            dismissButton = {
+                TextButton(onClick = { widgetPinFailed = false }) { Text("知道了") }
+            },
+        )
+    }
+
     updateResult?.let { info ->
         AlertDialog(
             onDismissRequest = { updateResult = null },
-            title = { Text("发现新版本 " + info.version, fontSize = 16.sp) },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = {
+                Text(
+                    "发现新版本 " + info.version,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
             text = {
                 Column {
                     if (info.prerelease) {
@@ -679,10 +739,14 @@ fun SettingsScreen(
     if (confirmingLogout) {
         AlertDialog(
             onDismissRequest = { confirmingLogout = false },
-            title = { Text("退出登录？") },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            title = { Text("退出登录？", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
             text = { Text("清除登录状态和课表缓存，实验课表数据保留。") },
             confirmButton = {
-                TextButton(onClick = { confirmingLogout = false; onLogout() }) { Text("退出") }
+                TextButton(onClick = { confirmingLogout = false; onLogout() }) {
+                    Text("退出", color = MaterialTheme.colorScheme.error)
+                }
             },
             dismissButton = { TextButton(onClick = { confirmingLogout = false }) { Text("取消") } },
         )
@@ -693,9 +757,9 @@ fun SettingsScreen(
 private fun SectionTitle(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.titleSmall,
+        style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
+        modifier = Modifier.padding(start = 2.dp, top = 8.dp, bottom = 8.dp),
     )
 }
 
@@ -711,13 +775,14 @@ private fun SettingRow(
         Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(
                 if (danger) MaterialTheme.colorScheme.errorContainer
                 else MaterialTheme.colorScheme.surfaceContainerLow
             )
             .pressable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -762,7 +827,8 @@ private fun SwitchRow(
         Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .pressable(onClick = { onChange(!checked) })
             .padding(start = 16.dp, end = 10.dp, top = 12.dp, bottom = 12.dp),
@@ -794,15 +860,66 @@ private fun toast(ctx: android.content.Context, msg: String) {
     android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
 }
 
-/** 桌面支持时直接拉起系统「添加小组件」确认框，否则提示手动添加路径 */
-private fun addWidgetToHome(ctx: android.content.Context) {
+/** 请求桌面固定小组件；小米桌面会静默忽略未授权的请求，延迟核对是否真的出现 */
+private fun addWidgetToHome(ctx: android.content.Context, onFailed: () -> Unit) {
     val mgr = android.appwidget.AppWidgetManager.getInstance(ctx)
     val provider = android.content.ComponentName(
         ctx, com.hpu.timetable.widget.ScheduleWidget::class.java
     )
-    val ok = runCatching { mgr.isRequestPinAppWidgetSupported }.getOrDefault(false) &&
-        runCatching { mgr.requestPinAppWidget(provider, null, null) }.getOrDefault(false)
-    if (!ok) toast(ctx, "长按桌面空白处 → 小组件 → 河理课表")
+    val before = runCatching { mgr.getAppWidgetIds(provider).toSet() }.getOrDefault(emptySet())
+    val requested = runCatching { mgr.requestPinAppWidget(provider, null, null) }.getOrDefault(false)
+    if (!requested) {
+        onFailed()
+        return
+    }
+    if (!isMiuiHome(ctx)) return
+
+    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+        val after = runCatching { mgr.getAppWidgetIds(provider).toSet() }.getOrDefault(emptySet())
+        if (after.any { it !in before }) {
+            com.hpu.timetable.widget.ScheduleWidget.updateAll(ctx)
+            toast(ctx, "已添加到桌面")
+        } else {
+            onFailed()
+        }
+    }, 1500)
+}
+
+private fun isMiuiHome(ctx: android.content.Context): Boolean {
+    if (android.os.Build.BRAND.lowercase() !in listOf("xiaomi", "redmi", "poco")) return false
+    val home = ctx.packageManager.resolveActivity(
+        android.content.Intent(android.content.Intent.ACTION_MAIN)
+            .addCategory(android.content.Intent.CATEGORY_HOME),
+        android.content.pm.PackageManager.MATCH_DEFAULT_ONLY,
+    )?.activityInfo?.packageName
+    return home == "com.miui.home"
+}
+
+/** 直达小米权限编辑页；打不开就退回应用详情页 */
+private fun openShortcutPermission(ctx: android.content.Context) {
+    val intents = buildList {
+        if (android.os.Build.BRAND.lowercase() in listOf("xiaomi", "redmi", "poco")) {
+            add(
+                android.content.Intent("miui.intent.action.APP_PERM_EDITOR")
+                    .setClassName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.permissions.PermissionsEditorActivity",
+                    )
+                    .putExtra("extra_pkgname", ctx.packageName)
+            )
+        }
+        add(
+            android.content.Intent(
+                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:" + ctx.packageName),
+            )
+        )
+    }
+    for (intent in intents) {
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { ctx.startActivity(intent) }.isSuccess) return
+    }
+    toast(ctx, "请到应用信息 → 权限管理里允许「桌面快捷方式」")
 }
 
 /** 是否已在电池优化白名单里 */

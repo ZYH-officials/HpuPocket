@@ -3,13 +3,13 @@ package com.hpu.timetable.ui.profile
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hpu.timetable.ui.pressable
 
 private const val REPO_URL = "https://github.com/ZYH-officials/HpuPocket"
 private const val RELEASES_URL = "https://github.com/ZYH-officials/HpuPocket/releases"
@@ -42,7 +43,7 @@ private const val ISSUES_URL = "https://github.com/ZYH-officials/HpuPocket/issue
 private const val LICENSE_URL = "https://github.com/ZYH-officials/HpuPocket/blob/main/LICENSE"
 private const val ZZUPOCKET_URL = "https://github.com/3beuml/ZZUPocket"
 
-/** 读桌面启动图标（自适应图标也能画出来），失败返回 null 由界面兜底 */
+/** 读桌面启动图标（自适应图标也能画出来），失败则不显示图标 */
 private fun loadAppIcon(ctx: android.content.Context): ImageBitmap? = runCatching {
     val drawable = ctx.packageManager.getApplicationIcon(ctx.packageName)
     val size = 192
@@ -76,125 +77,113 @@ fun AboutScreen(onBack: () -> Unit) {
             Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .verticalScroll(rememberScrollState()),
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBack) { Text("‹ 返回", fontSize = 14.sp) }
             }
 
-            // Hero：图标 + 应用名 + 版本，和 HuaweiPods 关于页一样放中轴上
-            Column(
-                Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 22.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (icon != null) {
-                    Image(
-                        bitmap = icon,
-                        contentDescription = "应用图标",
-                        modifier = Modifier.size(84.dp).clip(RoundedCornerShape(22.dp)),
-                    )
-                } else {
-                    androidx.compose.foundation.layout.Box(
-                        Modifier
-                            .size(84.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center,
-                    ) {
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                // Hero：图标 + 应用名 + 版本，和 HuaweiPods 关于页一样放中轴上
+                Column(
+                    Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    icon?.let {
+                        Image(
+                            bitmap = it,
+                            contentDescription = "应用图标",
+                            modifier = Modifier.size(84.dp).clip(RoundedCornerShape(22.dp)),
+                        )
+                        Spacer(Modifier.height(14.dp))
+                    }
+                    Text("河理课表", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    if (version.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
                         Text(
-                            "课",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            "v$version",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "把学校分散的网页系统，装进一个原生课表 App",
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
                 }
-                Spacer(Modifier.height(14.dp))
-                Text("河理课表", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
+
+                SectionTitle("项目")
+                GroupCard {
+                    LinkRow("GitHub 仓库", "ZYH-officials/HpuPocket") {
+                        uriHandler.openUri(REPO_URL)
+                    }
+                    RowDivider()
+                    LinkRow("下载与更新", "在 GitHub Releases 获取新版本") {
+                        uriHandler.openUri(RELEASES_URL)
+                    }
+                    RowDivider()
+                    LinkRow("问题反馈", "在 GitHub Issues 报告问题") {
+                        uriHandler.openUri(ISSUES_URL)
+                    }
+                    RowDivider()
+                    LinkRow("开源协议", "MIT License") {
+                        uriHandler.openUri(LICENSE_URL)
+                    }
+                }
+
+                SectionTitle("数据与隐私")
+                GroupCard {
+                    BulletList(
+                        listOf(
+                            "密码经系统 Keystore 加密，只存本机；可在登录页关闭记住密码",
+                            "课表、成绩等缓存只存本机，没有自建服务器，不上传任何数据",
+                            "退出登录清会话与缓存，卸载即全清",
+                            "只读查询，不代替你提交任何操作",
+                        ),
+                    )
+                }
+
+                SectionTitle("数据从哪来")
+                GroupCard {
+                    BulletList(
+                        listOf(
+                            "教务系统：课表、考试、成绩、空闲教室",
+                            "实验平台：实验课表与上课地点，支持网页导入兜底",
+                            "作业平台 smartestu.cn（第三方）：待交作业，账号单独填写",
+                            "一言 hitokoto.cn：首页短句，失败时用内置句",
+                        ),
+                    )
+                }
+
+                SectionTitle("致谢")
+                GroupCard {
+                    LinkRow("ZZUPocket", "协议与架构思路参考（MIT）") {
+                        uriHandler.openUri(ZZUPOCKET_URL)
+                    }
+                    RowDivider()
+                    BulletList(
+                        listOf(
+                            "桌面小组件视觉参考拾光课程表",
+                            "构建于 Jetpack Compose、Material 3、OkHttp",
+                        ),
+                    )
+                }
+
                 Text(
-                    if (version.isBlank()) "" else "v$version",
-                    fontSize = 13.sp,
+                    "MIT 协议开源 · 数据以教务系统为准",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "把学校分散的网页系统，装进一个原生课表 App",
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 32.dp),
                     textAlign = TextAlign.Center,
                 )
             }
-
-            SectionTitle("项目")
-            GroupCard {
-                LinkRow("GitHub 仓库", "ZYH-officials/HpuPocket") {
-                    uriHandler.openUri(REPO_URL)
-                }
-                RowDivider()
-                LinkRow("下载与更新", "在 GitHub Releases 获取新版本") {
-                    uriHandler.openUri(RELEASES_URL)
-                }
-                RowDivider()
-                LinkRow("问题反馈", "在 GitHub Issues 报告问题") {
-                    uriHandler.openUri(ISSUES_URL)
-                }
-                RowDivider()
-                LinkRow("开源协议", "MIT License") {
-                    uriHandler.openUri(LICENSE_URL)
-                }
-            }
-
-            SectionTitle("数据与隐私")
-            GroupCard {
-                BulletList(
-                    listOf(
-                        "密码经系统 Keystore 加密，只存本机；可在登录页关闭记住密码",
-                        "课表、成绩等缓存只存本机，没有自建服务器，不上传任何数据",
-                        "退出登录清会话与缓存，卸载即全清",
-                        "只读查询，不代替你提交任何操作",
-                    ),
-                )
-            }
-
-            SectionTitle("数据从哪来")
-            GroupCard {
-                BulletList(
-                    listOf(
-                        "教务系统：课表、考试、成绩、空闲教室",
-                        "实验平台：实验课表与上课地点，支持网页导入兜底",
-                        "作业平台 smartestu.cn（第三方）：待交作业，账号单独填写",
-                        "一言 hitokoto.cn：首页短句，失败时用内置句",
-                    ),
-                )
-            }
-
-            SectionTitle("致谢")
-            GroupCard {
-                LinkRow("ZZUPocket", "协议与架构思路参考（MIT）") {
-                    uriHandler.openUri(ZZUPOCKET_URL)
-                }
-                RowDivider()
-                BulletList(
-                    listOf(
-                        "桌面小组件视觉参考拾光课程表",
-                        "构建于 Jetpack Compose、Material 3、OkHttp",
-                    ),
-                )
-            }
-
-            Text(
-                "MIT 协议开源 · 数据以教务系统为准",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 30.dp),
-                textAlign = TextAlign.Center,
-            )
         }
     }
 }
@@ -203,10 +192,9 @@ fun AboutScreen(onBack: () -> Unit) {
 private fun SectionTitle(text: String) {
     Text(
         text,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 6.dp, top = 10.dp, bottom = 8.dp),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 2.dp, top = 8.dp, bottom = 8.dp),
     )
 }
 
@@ -238,8 +226,9 @@ private fun LinkRow(title: String, summary: String, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .heightIn(min = 48.dp)
+            .pressable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

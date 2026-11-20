@@ -158,7 +158,12 @@ fun FreeRoomScreen(onBack: () -> Unit) {
             Text("教学楼", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(10.dp))
             Text(
-                building?.name ?: if (buildings.isEmpty()) "加载中…" else "请选择",
+                building?.name ?: when {
+                    loading && buildings.isEmpty() -> "加载中…"
+                    error != null && buildings.isEmpty() -> "加载失败"
+                    buildings.isEmpty() -> "暂不可用"
+                    else -> "请选择"
+                },
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
@@ -293,7 +298,7 @@ private fun Matrix(rooms: List<RoomDay>) {
                 Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                 Text(
                     SLOT_TIMES[i],
-                    fontSize = 7.sp,
+                    fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -315,7 +320,7 @@ private fun Matrix(rooms: List<RoomDay>) {
                 if (sub.isNotBlank()) {
                     Text(
                         sub,
-                        fontSize = 8.sp,
+                        fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -358,7 +363,7 @@ private fun Matrix(rooms: List<RoomDay>) {
     Spacer(Modifier.height(4.dp))
     Text(
         "共 " + rooms.size + " 间 · 只列有空的教室",
-        fontSize = 9.sp,
+        fontSize = 11.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
@@ -381,17 +386,8 @@ private fun NoticeCard(title: String, body: String, onRetry: (() -> Unit)?) {
             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
         )
         if (onRetry != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "重试",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onRetry)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
+            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = onRetry) { Text("重试", fontSize = 12.sp) }
         }
     }
 }
