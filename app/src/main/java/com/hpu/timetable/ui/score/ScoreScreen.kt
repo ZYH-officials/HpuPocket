@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hpu.timetable.data.ScoreItem
@@ -56,6 +57,7 @@ fun ScoreScreen(onBack: () -> Unit) {
     var semesters by remember { mutableStateOf<List<SemesterInfo>>(emptyList()) }
     var selected by remember { mutableStateOf<SemesterInfo?>(null) }
     var result by remember { mutableStateOf<ScoreResult?>(null) }
+    var semestersLoading by remember { mutableStateOf(true) }
     var loading by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
     var tick by remember { mutableIntStateOf(0) }
@@ -68,11 +70,13 @@ fun ScoreScreen(onBack: () -> Unit) {
             .run(ctx, allowLogin = false, notifyGlobal = false) { client.fetchSemesters().getOrThrow() }
             .onSuccess { list ->
                 semesters = list
+                semestersLoading = false
                 if (selected == null) {
                     selected = list.lastOrNull { it.isCurrent } ?: list.lastOrNull()
                 }
             }
             .onFailure { e ->
+                semestersLoading = false
                 result = ScoreResult.Fail(
                     if (e is com.hpu.timetable.data.auth.SessionExpiredException)
                         "登录已过期，点刷新重登"
@@ -84,13 +88,18 @@ fun ScoreScreen(onBack: () -> Unit) {
     // 刷新时若还没有学期列表，先补一次（只有刷新允许自动重登）
     LaunchedEffect(tick) {
         if (tick > 0 && semesters.isEmpty()) {
+            semestersLoading = true
+            result = null
             com.hpu.timetable.data.auth.SessionGate
                 .run(ctx, allowLogin = true, notifyGlobal = false) { client.fetchSemesters().getOrThrow() }
                 .onSuccess { list ->
                     semesters = list
+                    semestersLoading = false
+                    if (list.isEmpty()) result = null
                     if (selected == null) selected = list.lastOrNull { it.isCurrent } ?: list.lastOrNull()
                 }
                 .onFailure { e ->
+                    semestersLoading = false
                     result = ScoreResult.Fail(
                         if (e is com.hpu.timetable.data.auth.SessionExpiredException)
                             "登录已过期，点刷新重登"
@@ -169,7 +178,12 @@ fun ScoreScreen(onBack: () -> Unit) {
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    selected?.label ?: if (semesters.isEmpty()) "加载中…" else "请选择",
+                    selected?.label ?: when {
+                        semestersLoading -> "加载中…"
+                        result is ScoreResult.Fail && semesters.isEmpty() -> "加载失败"
+                        semesters.isEmpty() -> "暂不可用"
+                        else -> "请选择"
+                    },
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f),
@@ -183,24 +197,29 @@ fun ScoreScreen(onBack: () -> Unit) {
         ) {
             Spacer(Modifier.height(12.dp))
             when (val r = result) {
-                null -> {
-                    if (loading || semesters.isEmpty()) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            LoadingIndicator(Modifier.size(18.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                if (com.hpu.timetable.data.auth.SessionGate.relogging)
-                                    "登录已过期，正在重登…"
-                                else "正在读取成绩…",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                null -> when {
+                    loading || semestersLoading -> Row(
+                        Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LoadingIndicator(Modifier.size(18.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (com.hpu.timetable.data.auth.SessionGate.relogging)
+                                "登录已过期，正在重登…"
+                            else "正在读取成绩…",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
+                    semesters.isEmpty() -> NoticeCard(
+                        title = "暂无学期信息",
+                        body = "点右上角刷新重试。",
+                        action = "重试",
+                        onAction = { tick++ },
+                    )
+                    else -> EmptyCard("请选择学期")
                 }
 
                 is ScoreResult.Ok -> if (r.items.isEmpty()) {
@@ -302,7 +321,7 @@ private fun ScoreRow(s: ScoreItem) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(s.course, fontSize = 14.sp, maxLines = 1)
+            Text(s.course, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (s.credit.isNotBlank()) {
                 Text(
                     "学分 " + s.credit,
@@ -357,17 +376,8 @@ private fun NoticeCard(
             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
         )
         if (action != null && onAction != null) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                action,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
+            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = onAction) { Text(action, fontSize = 12.sp) }
         }
     }
 }

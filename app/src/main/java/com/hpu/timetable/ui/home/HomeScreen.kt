@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hpu.timetable.data.CourseInstance
@@ -97,8 +98,6 @@ fun HomeScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
     ) {
-        Spacer(Modifier.height(18.dp))
-
         Spacer(Modifier.height(20.dp))
         Text(
             greeting() + "，" + name.ifBlank { "同学" },
@@ -180,6 +179,7 @@ fun HomeScreen(
                                 fontSize = 14.sp,
                                 fontWeight = if (c == currentCourse) FontWeight.SemiBold else FontWeight.Medium,
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = if (c == currentCourse) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface,
                             )
@@ -191,6 +191,7 @@ fun HomeScreen(
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
@@ -580,9 +581,10 @@ private fun QuoteCard(quote: Quote?, onRefresh: () -> Unit) {
             "—— " + source,
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
-            modifier = Modifier.padding(start = 18.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(start = 18.dp),
         )
-        Spacer(Modifier.weight(1f))
         Text(
             "↻",
             fontSize = 15.sp,

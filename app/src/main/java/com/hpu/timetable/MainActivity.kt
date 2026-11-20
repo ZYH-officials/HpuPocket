@@ -20,9 +20,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.NavigationBar
@@ -401,20 +406,20 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
                     NavigationBarItem(
                         selected = tab == 0,
                         onClick = { tab = 0 },
-                        icon = { Text("首", fontSize = 15.sp) },
-                        label = { Text("首页", fontSize = 11.sp) },
+                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                        label = { Text("首页") },
                     )
                     NavigationBarItem(
                         selected = tab == 1,
                         onClick = { tab = 1 },
-                        icon = { Text("课", fontSize = 15.sp) },
-                        label = { Text("课表", fontSize = 11.sp) },
+                        icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
+                        label = { Text("课表") },
                     )
                     NavigationBarItem(
                         selected = tab == 2,
                         onClick = { tab = 2 },
-                        icon = { Text("我", fontSize = 15.sp) },
-                        label = { Text("我的", fontSize = 11.sp) },
+                        icon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                        label = { Text("我的") },
                     )
                 }
             },
@@ -655,11 +660,12 @@ private fun openExactAlarmSettings(ctx: android.content.Context) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun LoadingScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
+            LoadingIndicator(Modifier.size(40.dp))
             androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
             Text(
                 "正在读取课表…",

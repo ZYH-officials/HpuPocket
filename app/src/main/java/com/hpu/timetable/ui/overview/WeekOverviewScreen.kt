@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hpu.timetable.data.CourseInstance
@@ -89,7 +90,7 @@ fun WeekOverviewScreen(onBack: () -> Unit) {
                         .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Text("本周有考试", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text("下周有考试", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     exams.forEach { e ->
                         Spacer(Modifier.height(4.dp))
                         Text(
@@ -177,13 +178,19 @@ private fun CourseLine(c: CourseInstance) {
             modifier = Modifier.padding(end = 10.dp),
         )
         Column(Modifier.weight(1f)) {
-            Text(c.course, fontSize = 13.sp, maxLines = 1)
+            Text(c.course, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val sub = listOfNotNull(
                 c.room.ifBlank { null },
                 c.teacher.ifBlank { null },
             ).joinToString(" · ")
             if (sub.isNotBlank()) {
-                Text(sub, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Text(
+                    sub,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
         if (c.span > 1) {

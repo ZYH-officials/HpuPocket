@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -71,11 +72,14 @@ private data class RoomBalance(
     val loading: Boolean = false,
     val items: List<Pair<String, String>> = emptyList(),
     val error: String? = null,
+    val recordsLoading: Boolean = false,
+    val records: List<WhqClient.UsageRecord> = emptyList(),
+    val recordsError: String? = null,
 )
 
 /**
- * 宿舍电量：微信扫码登录微后勤 → 展示已绑定房间的剩余电量。
- * 暂不做购电（跳一卡通）和用电记录。
+ * 宿舍电量：微信扫码登录微后勤 → 展示已绑定房间的剩余电量和用电记录。
+ * 暂不做购电（跳一卡通）。
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -93,6 +97,7 @@ fun ElectricityScreen(onBack: () -> Unit) {
     var loadingRooms by remember { mutableStateOf(false) }
     var roomError by remember { mutableStateOf<String?>(null) }
     var balances by remember { mutableStateOf<Map<String, RoomBalance>>(emptyMap()) }
+    var detailRoom by remember { mutableStateOf<WhqClient.Room?>(null) }
     var tick by remember { mutableIntStateOf(0) }
 
     BackHandler { onBack() }
@@ -113,7 +118,7 @@ fun ElectricityScreen(onBack: () -> Unit) {
         loadingRooms = false
         found.forEach { (_, rooms) ->
             rooms.forEach { room ->
-                balances = balances + (room.key to RoomBalance(loading = true))
+                balances = balances + (room.key to RoomBalance(loading = true, recordsLoading = true))
             }
         }
         // 顺序查，每查完一间就刷新界面；单间失败不影响其它房间
@@ -121,8 +126,18 @@ fun ElectricityScreen(onBack: () -> Unit) {
             for (room in rooms) {
                 val r = client.balance(room)
                 balances = balances + (room.key to r.fold(
-                    onSuccess = { raws -> RoomBalance(items = WhqClient.parseBalance(raws)) },
-                    onFailure = { e -> RoomBalance(error = e.message ?: "电量查询失败") },
+                    onSuccess = { raws ->
+                        RoomBalance(items = WhqClient.parseBalance(raws), recordsLoading = true)
+                    },
+                    onFailure = { e ->
+                        RoomBalance(error = e.message ?: "电量查询失败", recordsLoading = true)
+                    },
+                ))
+                val u = client.usage(room)
+                balances = balances + (room.key to (balances[room.key] ?: RoomBalance()).copy(
+                    recordsLoading = false,
+                    records = u.getOrElse { emptyList() },
+                    recordsError = u.exceptionOrNull()?.message,
                 ))
             }
         }
@@ -184,8 +199,8 @@ fun ElectricityScreen(onBack: () -> Unit) {
         ) {
             Text(
                 "宿舍电量",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
             if (loggedIn) {
@@ -245,7 +260,7 @@ fun ElectricityScreen(onBack: () -> Unit) {
                     modifier = Modifier.padding(start = 6.dp, top = 12.dp, bottom = 8.dp),
                 )
                 rooms.forEach { room ->
-                    RoomCard(room.name, balances[room.key])
+                    RoomCard(room.name, balances[room.key]) { detailRoom = room }
                     Spacer(Modifier.height(10.dp))
                 }
             }
@@ -275,6 +290,14 @@ fun ElectricityScreen(onBack: () -> Unit) {
             ) { Text("退出微后勤登录", fontSize = 12.sp) }
             Spacer(Modifier.height(30.dp))
         }
+    }
+
+    detailRoom?.let { room ->
+        UsageDialog(
+            name = room.name,
+            state = balances[room.key],
+            onDismiss = { detailRoom = null },
+        )
     }
 }
 
@@ -315,6 +338,33 @@ private fun LoginPanel(qr: ImageBitmap?, status: String, onRefresh: () -> Unit) 
         }
         Spacer(Modifier.height(14.dp))
         Text(status, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+            Text(
+                "① 用微信扫一扫上面的二维码",
+                fontSize = 11.sp,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "② 微信会直接打开微后勤并完成登录，无需手动确认",
+                fontSize = 11.sp,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "③ 回到本页，会自动进入并加载电量",
+                fontSize = 11.sp,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "扫码后不用重新打开 App，停留在本页等待即可",
+                fontSize = 11.sp,
+                lineHeight = 18.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(Modifier.height(4.dp))
         TextButton(onClick = onRefresh) { Text("刷新二维码", fontSize = 13.sp) }
     }
@@ -322,52 +372,274 @@ private fun LoginPanel(qr: ImageBitmap?, status: String, onRefresh: () -> Unit) 
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun RoomCard(name: String, state: RoomBalance?) {
+private fun RoomCard(name: String, state: RoomBalance?, onOpenRecords: () -> Unit) {
+    val days = state?.records?.let(::groupUsage).orEmpty()
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
-        Text(name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(8.dp))
+        Text(name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(16.dp))
         when {
             state == null || state.loading -> Row(verticalAlignment = Alignment.CenterVertically) {
-                LoadingIndicator(modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
+                LoadingIndicator(modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
                 Text(
                     "电量查询中…",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             state.error != null -> Text(
                 state.error,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.error,
             )
             state.items.isEmpty() -> Text(
                 "暂无数据",
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            else -> state.items.forEach { (label, value) ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        label,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        " 度",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            else -> Row(Modifier.fillMaxWidth()) {
+                state.items.forEachIndexed { index, (label, value) ->
+                    if (index > 0) {
+                        Box(
+                            Modifier
+                                .width(1.dp)
+                                .height(48.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
+                        )
+                    }
+                    BalanceItem(label, value, Modifier.weight(1f))
                 }
             }
         }
+
+        Spacer(Modifier.height(16.dp))
+        androidx.compose.material3.HorizontalDivider(
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "最近用电",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onOpenRecords) { Text("全部记录 ›", fontSize = 12.sp) }
+        }
+        when {
+            state == null || state.recordsLoading -> Row(
+                Modifier.padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LoadingIndicator(modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "记录读取中…",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            state.recordsError != null -> Text(
+                "记录读取失败：" + state.recordsError,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.error,
+            )
+            days.isEmpty() -> Text(
+                "近 14 天没有用电记录",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            else -> days.take(3).forEach { day -> UsageDayRow(day, compact = true) }
+        }
     }
+}
+
+@Composable
+private fun BalanceItem(label: String, value: String, modifier: Modifier = Modifier) {
+    val negative = value.toDoubleOrNull()?.let { it < 0 } == true
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            shortBalanceLabel(label),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(5.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                value,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (negative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                " 度",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun UsageDayRow(day: DayUsage, compact: Boolean = false) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = if (compact) 5.dp else 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (compact) {
+            Text(
+                dayLabel(day.date),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(88.dp),
+            )
+        } else {
+            Column(Modifier.width(82.dp)) {
+                Text(dayLabel(day.date).substringBefore(" "), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    dayLabel(day.date).substringAfter(" ", ""),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Text(
+            usageSummary(day.rows),
+            fontSize = if (compact) 13.sp else 14.sp,
+            fontWeight = FontWeight.Medium,
+            lineHeight = 20.sp,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+private fun shortBalanceLabel(label: String): String = when {
+    label.contains("备用") -> "备用电量"
+    label.contains("空调") -> "空调电量"
+    label.contains("照明") -> "照明电量"
+    else -> "剩余电量"
+}
+
+private fun shortMeter(meter: String): String = when {
+    meter.contains("备用") -> "备用"
+    meter.contains("空调") -> "空调"
+    meter.contains("照明") -> "照明"
+    else -> meter
+}
+
+private data class DayUsage(val date: String, val rows: List<WhqClient.UsageRecord>)
+
+private fun groupUsage(records: List<WhqClient.UsageRecord>): List<DayUsage> =
+    records.groupBy { it.date }
+        .toSortedMap(compareByDescending { it })
+        .mapNotNull { (date, rows) ->
+            val used = rows.distinctBy { it.meter }.filter { (it.kwh.toDoubleOrNull() ?: 0.0) != 0.0 }
+            if (used.isEmpty()) null else DayUsage(date, used)
+        }
+
+private fun dayLabel(date: String): String {
+    val d = runCatching { java.time.LocalDate.parse(date) }.getOrNull() ?: return date
+    val week = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+    return String.format("%02d-%02d", d.monthValue, d.dayOfMonth) + " " +
+        week[d.dayOfWeek.value - 1]
+}
+
+/** 同一天合并：跳过 0 度，剩下的按「照明 1.95 · 空调 3.75 度」展示 */
+private fun usageSummary(rows: List<WhqClient.UsageRecord>): String {
+    val parts = rows.mapNotNull { r ->
+        val v = r.kwh.toDoubleOrNull() ?: return@mapNotNull null
+        if (v == 0.0) null else shortMeter(r.meter) + " " + r.kwh
+    }
+    return if (parts.isEmpty()) "0.00 度" else parts.joinToString(" · ") + " 度"
+}
+
+private fun totalUsage(records: List<WhqClient.UsageRecord>): String =
+    String.format("%.2f", records.sumOf { it.kwh.toDoubleOrNull() ?: 0.0 })
+
+/** 某间房的完整用电记录（默认已取约两周），弹窗里可滚动 */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun UsageDialog(name: String, state: RoomBalance?, onDismiss: () -> Unit) {
+    val days = state?.records?.let(::groupUsage).orEmpty()
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("用电记录", fontSize = 20.sp, fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                when {
+                    state == null || state.recordsLoading -> Row(
+                        Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                    ) {
+                        LoadingIndicator(modifier = Modifier.size(20.dp))
+                    }
+                    state.recordsError != null -> Text(
+                        "读取失败：" + state.recordsError,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    days.isEmpty() -> Text(
+                        "近 14 天暂无用电记录",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    else -> {
+                        Text(name, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "近 14 天合计",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    totalUsage(state.records),
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    " 度",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        days.forEachIndexed { index, day ->
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                                    .padding(horizontal = 12.dp),
+                            ) {
+                                UsageDayRow(day)
+                            }
+                            if (index != days.lastIndex) Spacer(Modifier.height(6.dp))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+    )
 }

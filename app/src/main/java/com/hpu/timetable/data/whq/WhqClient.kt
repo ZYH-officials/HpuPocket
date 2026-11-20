@@ -12,6 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
 /**
@@ -48,6 +49,14 @@ class WhqClient(context: Context) {
                 ?: runCatching { raw.getJSONArray("room").getString(0) }.getOrNull()
                 ?: "未知房间"
     }
+
+    /** 用电记录的一行：日期、表名、度数、电价 */
+    data class UsageRecord(
+        val date: String,
+        val meter: String,
+        val kwh: String,
+        val price: String,
+    )
 
     private fun get(path: String) = Request.Builder()
         .url(BASE + path)
@@ -135,6 +144,53 @@ class WhqClient(context: Context) {
             throw last ?: error("电量查询失败")
         }
     }
+
+    /**
+     * 用电记录：按 H5 的窗口方式往前翻（首次今天往前 3 天，下一窗再往前 4 天），
+     * 最多翻 [maxWindows] 窗（默认 3 窗≈两周）。中途失败保留已拿到的数据。
+     */
+    suspend fun usage(room: Room, maxWindows: Int = 3): Result<List<UsageRecord>> =
+        withContext(Dispatchers.IO) {
+            catching {
+                val out = mutableListOf<UsageRecord>()
+                var end = LocalDate.now()
+                var start = end.minusDays(3)
+                var first = true
+                for (w in 0 until maxWindows) {
+                    val body = try {
+                        execute(
+                            postJson(
+                                "/fapi/utility_bill/get_record",
+                                JSONObject()
+                                    .put("txtStart", start.toString())
+                                    .put("txtEnd", end.toString())
+                                    .put("area", room.area)
+                                    .put("type", "use")
+                                    .put("room", room.raw),
+                            ),
+                            20,
+                        )
+                    } catch (e: Exception) {
+                        if (first) throw e else break
+                    }
+                    first = false
+                    val arr = JSONArray(body.trim())
+                    if (arr.length() == 0) break
+                    for (i in 0 until arr.length()) {
+                        val row = arr.optJSONArray(i) ?: continue
+                        out += UsageRecord(
+                            date = row.optString(0),
+                            meter = row.optString(1),
+                            kwh = row.optString(2),
+                            price = row.optString(3),
+                        )
+                    }
+                    end = start.minusDays(1)
+                    start = end.minusDays(4)
+                }
+                out.sortedByDescending { it.date }
+            }
+        }
 
     suspend fun logout(): Result<Unit> = withContext(Dispatchers.IO) {
         catching { execute(postJson("/fapi/index/logOut", JSONObject()), 8); Unit }

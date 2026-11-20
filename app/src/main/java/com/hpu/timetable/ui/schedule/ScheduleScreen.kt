@@ -10,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -222,10 +224,14 @@ fun ScheduleScreen(instances: List<CourseInstance>) {
                     }
                 }
             }
-            // 非本周时右下角浮出「今」，一键回到本周
-            if (week != currentWeek) {
+            // 只有当前日期落在学期内时才提供「回到本周」
+            if (currentWeek in 1..TOTAL_WEEKS && week != currentWeek) {
                 SmallFloatingActionButton(
-                    onClick = { scope.launch { pagerState.animateScrollToPage(currentWeek - 1) } },
+                    onClick = {
+                        scope.launch {
+                            pagerState.animateScrollToPage((currentWeek - 1).coerceIn(0, TOTAL_WEEKS - 1))
+                        }
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(end = 14.dp, bottom = 14.dp),
@@ -304,6 +310,7 @@ private fun compressWeeks(weeks: List<Int>): String {
     return "第 $text 周"
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TodayOverview(
     items: List<CourseInstance>,
@@ -378,7 +385,11 @@ private fun TodayOverview(
         )
         if (items.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 items.forEach { c ->
                     val i = (c.big - 1).coerceIn(0, 4)
                     val state = when {
@@ -472,12 +483,13 @@ private fun WeekHeader(
 
 ) {
     Row(
-        Modifier.fillMaxWidth().height(44.dp),
+        Modifier.fillMaxWidth().height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(
             onClick = onPrev,
-            modifier = Modifier.width(36.dp).height(40.dp),
+            enabled = week > 1,
+            modifier = Modifier.width(48.dp).height(48.dp),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
         ) { Text("‹", fontSize = 20.sp) }
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -495,7 +507,8 @@ private fun WeekHeader(
         }
         TextButton(
             onClick = onNext,
-            modifier = Modifier.width(36.dp).height(40.dp),
+            enabled = week < TOTAL_WEEKS,
+            modifier = Modifier.width(48.dp).height(48.dp),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
         ) { Text("›", fontSize = 20.sp) }
     }
