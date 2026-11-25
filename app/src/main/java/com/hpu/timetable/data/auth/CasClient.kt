@@ -38,22 +38,46 @@ class CasClient(val cookieJar: PersistCookieJar) {
     data class LoginPage(val lt: String, val execution: String)
     data class Captcha(val base64: String, val token: String)
 
+    /** 打开统一认证入口的三种结果，不能把“没有表单”直接当成已登录 */
+    sealed interface OpenLoginResult {
+        data class Form(val page: LoginPage) : OpenLoginResult
+        data object AlreadyAuthenticated : OpenLoginResult
+    }
+
     private val loginUrl = "https://uia.hpu.edu.cn/cas/login?service=" +
         "https%3A%2F%2Fuia.hpu.edu.cn%2Fsso%2Flogin%3Fredirect_uri%3Dhttp%253A%252F%252Fzhlg.hpu.edu.cn%252F" +
         "%26x_client%3Dcas"
 
-    suspend fun openLoginPage(): LoginPage = withContext(Dispatchers.IO) {
+    suspend fun openLoginPage(): OpenLoginResult = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(loginUrl).header("User-Agent", UA).build()
-        val html = followClient.newCall(req).execute().use { resp ->
-            val text = resp.body?.string().orEmpty()
-            com.hpu.timetable.AppLog.d("HPU_CAS", "page code=" + resp.code + " len=" + text.length)
-            text
-        }
+        val resp = followClient.newCall(req).execute()
+        val html = resp.body?.string().orEmpty()
+        val code = resp.code
+        val successful = resp.isSuccessful
+        val finalHost = resp.request.url.host
+        val finalUrl = resp.request.url.toString()
+        resp.close()
+        com.hpu.timetable.AppLog.d(
+            "HPU_CAS", "page code=" + code + " len=" + html.length + " finalHost=" + finalHost,
+        )
+        if (!successful) error("统一认证 HTTP " + code)
         val lt = Regex("""name="lt" value="([^"]+)"""").find(html)?.groupValues?.get(1).orEmpty()
         val exe = Regex("""name="execution" value="([^"]+)"""").find(html)?.groupValues?.get(1).orEmpty()
-        com.hpu.timetable.AppLog.d("HPU_CAS", "page htmlLen=" + html.length + " lt=" + lt + " exe=" + exe)
-        com.hpu.timetable.AppLog.d("HPU_CAS", "HTML>> " + html.replace("\n", " ").replace("\r", " ").take(1200))
-        LoginPage(lt, exe)
+        when {
+            lt.isNotBlank() && exe.isNotBlank() ->
+                OpenLoginResult.Form(LoginPage(lt, exe))
+
+            lt.isNotBlank() || exe.isNotBlank() ->
+                error("统一认证登录页不完整，请刷新重试")
+
+            // CAS 仍登录时会 302 到门户；只有确认落在门户才允许跳过表单
+            finalUrl.contains("zhlg.hpu.edu.cn") ||
+                html.contains("drupalSettings") ||
+                html.contains("\"account\":\"") ->
+                OpenLoginResult.AlreadyAuthenticated
+
+            else -> error("统一认证返回异常页面（HTTP " + code + "，长度 " + html.length + "）")
+        }
     }
 
     suspend fun fetchCaptcha(): Captcha = withContext(Dispatchers.IO) {
@@ -95,14 +119,16 @@ class CasClient(val cookieJar: PersistCookieJar) {
         val resp = client.newCall(req).execute()
         val location = resp.header("Location") ?: ""
         val body = resp.body?.string().orEmpty()
+        val code = resp.code
         resp.close()
+        val accepted = location.contains("sso/redirect") || location.contains("ticket=ST-")
         com.hpu.timetable.AppLog.d(
             "HPU_CAS",
-            "submit code=" + resp.code + " loc=" + location + " bodyLen=" + body.length +
+            "submit code=" + code + " accepted=" + accepted + " bodyLen=" + body.length +
                 " err=" + Regex("""id="errormes"[^>]*value="([^"]*)"""")
                     .find(body)?.groupValues?.get(1).orEmpty(),
         )
-        location.contains("sso/redirect") || location.contains("ticket=ST-")
+        accepted
     }
 
     /**
@@ -116,12 +142,17 @@ class CasClient(val cookieJar: PersistCookieJar) {
         while (attempts < 2) {
             attempts++
             if (attempts > 1) kotlinx.coroutines.delay(800)
-            val page = catching { openLoginPage() }.getOrNull() ?: return@withContext false
+            val opened = catching { openLoginPage() }.getOrNull() ?: return@withContext false
+            val page = when (opened) {
+                OpenLoginResult.AlreadyAuthenticated -> {
+                    // 只有确认落在门户才跳过提交；拿不到表单绝不当成已登录
+                    com.hpu.timetable.AppLog.d("HPU_CAS", "no login form (portal confirmed), skip submit")
+                    return@withContext true
+                }
+                is OpenLoginResult.Form -> opened.page
+            }
             if (page.lt.isBlank() || page.execution.isBlank()) {
-                // CAS 侧其实还登录着：登录页被 302 到了门户（5563 字节 drupal 页，没有 lt/execution）。
-                // 这时候硬提交账号密码，教务会直接回 HTTP 500。交给调用方用 login.action 重新换票即可。
-                com.hpu.timetable.AppLog.d("HPU_CAS", "no login form (cas already authed), skip submit")
-                return@withContext true
+                return@withContext false
             }
             val cap = catching { fetchCaptcha() }.getOrNull() ?: return@withContext false
             val bitmap = catching {
