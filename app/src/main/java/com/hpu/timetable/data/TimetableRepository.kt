@@ -63,24 +63,39 @@ object TimetableRepository {
 
     private fun labMetaFile(context: Context) = File(context.filesDir, "lab_meta.json")
 
-    /** 上次导入实验课时记下的学期起点；老版本没有这个文件，返回 null */
-    fun labSavedSemester(context: Context): LocalDate? {
+    private fun readLabMeta(context: Context): JSONObject? {
         val f = labMetaFile(context)
         if (!f.exists()) return null
-        return runCatching {
-            val raw = JSONObject(f.readText()).optString("semesterStart")
-            if (raw.isBlank()) null else LocalDate.parse(raw)
-        }.getOrNull()
+        return runCatching { JSONObject(f.readText()) }.getOrNull()
+    }
+
+    /** 上次导入实验课时记下的学期起点；老版本没有这个文件，返回 null */
+    fun labSavedSemester(context: Context): LocalDate? {
+        val raw = readLabMeta(context)?.optString("semesterStart").orEmpty()
+        if (raw.isBlank()) return null
+        return runCatching { LocalDate.parse(raw) }.getOrNull()
     }
 
     /**
-     * 实验课表属于哪个学期：
-     * NONE 没导入过；CURRENT 与当前"学期起点"一致；STALE 是上学期的，不能合并。
+     * 实验课表属于哪个学期、哪个账号：
+     * NONE 没导入过；CURRENT 与当前学期一致；STALE 是旧学期或别的账号，不能合并。
      * 老版本没有 lab_meta.json，按 CURRENT 处理，避免升级后把已有实验课直接清掉。
      */
     fun labSemesterState(context: Context): LabSemester {
         if (loadLabRaw(context) == null) return LabSemester.NONE
-        val saved = labSavedSemester(context) ?: return LabSemester.CURRENT
+        val meta = readLabMeta(context)
+        val owner = meta?.optString("account").orEmpty()
+        if (owner.isNotBlank() && owner != UserStore.account(context)) {
+            com.hpu.timetable.AppLog.d(
+                "HPU_LAB",
+                "lab_raw 属于账号 " + owner + "，当前账号 " + UserStore.account(context) + "，跳过合并",
+            )
+            return LabSemester.STALE
+        }
+        val savedRaw = meta?.optString("semesterStart").orEmpty()
+        val saved = savedRaw.takeIf { it.isNotBlank() }
+            ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?: return LabSemester.CURRENT
         return if (saved == Settings.semesterStart(context)) LabSemester.CURRENT else LabSemester.STALE
     }
 
@@ -94,15 +109,41 @@ object TimetableRepository {
 
     fun saveLabRaw(context: Context, json: String) {
         runCatching { labFile(context).writeText(json) }
-        // 记下这次导入属于哪个学期，换学期后就不会再把旧实验课合并进来
+        // 记下这次导入属于哪个账号、哪个学期；换账号/换学期都不再合并
         runCatching {
             labMetaFile(context).writeText(
                 JSONObject().apply {
+                    put("account", UserStore.account(context))
                     put("semesterStart", Settings.semesterStart(context).toString())
                     put("savedAt", System.currentTimeMillis())
                 }.toString()
             )
         }
+    }
+
+    /** 退出登录时把实验课归属补记到旧账号，保留同账号重登的实验课 */
+    fun stampLabOwner(context: Context, account: String) {
+        if (account.isBlank() || loadLabRaw(context) == null) return
+        runCatching {
+            val f = labMetaFile(context)
+            val meta = if (f.exists()) {
+                runCatching { JSONObject(f.readText()) }.getOrDefault(JSONObject())
+            } else {
+                JSONObject()
+            }
+            if (meta.optString("account").isBlank()) {
+                meta.put("account", account)
+                f.writeText(meta.toString())
+            }
+        }
+    }
+
+    /** 切换账号：旧账号的课表、考试、实验课都不再展示 */
+    fun clearForAccountSwitch(context: Context) {
+        cacheFile(context).delete()
+        examFile(context).delete()
+        labFile(context).delete()
+        labMetaFile(context).delete()
     }
 
     /** 教务 + 实验平台合并，并补实验课地点 */

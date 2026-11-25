@@ -72,6 +72,24 @@ object Settings {
             .apply()
     }
 
+    // ---------- 公告 ----------
+
+    fun noticeReadIds(ctx: Context): Set<String> {
+        val p = prefs(ctx)
+        val saved = p.getStringSet("notice_read_ids", null)
+        if (saved != null) return saved.toSet()
+        // 兼容早期单条已读记录
+        val legacy = p.getString("notice_read_id", "") ?: ""
+        return if (legacy.isBlank()) emptySet() else setOf(legacy)
+    }
+
+    fun markNoticeRead(ctx: Context, id: String) {
+        if (id.isBlank()) return
+        val ids = HashSet(noticeReadIds(ctx))
+        ids += id
+        prefs(ctx).edit().putStringSet("notice_read_ids", ids).apply()
+    }
+
     // ---------- 会话检查 ----------
 
     /** 上次检查会话的时间戳（毫秒），用来做节流 */

@@ -136,8 +136,16 @@ class JwClient(private val cookieJar: PersistCookieJar) {
                     .post(form)
                     .build()
             ).execute().use { resp ->
-                if (!resp.isSuccessful) error("课表 HTTP " + resp.code)
+                if (!resp.isSuccessful) error(
+                    if (resp.code == 500) "教务课表服务异常（HTTP 500）"
+                    else "课表 HTTP " + resp.code
+                )
                 resp.body?.string().orEmpty()
+            }
+            ensureNotRateLimited(html)
+            SessionGate.ensureLoggedIn(html)
+            if (!html.contains("new CourseTable(") || !html.contains("unitCount")) {
+                error("教务课表页面异常（长度 " + html.length + "）")
             }
             catching {
                 val semUrl = "http://zhjw.hpu.edu.cn/eams/dataQuery.action?tagId=semesterBar"
@@ -149,6 +157,12 @@ class JwClient(private val cookieJar: PersistCookieJar) {
             }
             com.hpu.timetable.AppLog.d("HPU_JW", "html len=" + html.length + " acts=" + Regex("new TaskActivity").findAll(html).count())
             val list = parse(html)
+            val hasActivities = Regex("""(?m)^\s*activity\s*=\s*new TaskActivity\(""")
+                .containsMatchIn(html)
+            if (list.isEmpty() && hasActivities) {
+                // 页面确实有课程，解析却为空：多半是教务页面结构变了，不能当“空课表”覆盖缓存
+                error("课表解析失败：页面有课程但未解析出数据")
+            }
             com.hpu.timetable.AppLog.d("HPU_JW", "parsed=" + list.size)
             list
         }

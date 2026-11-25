@@ -17,9 +17,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,12 +44,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hpu.timetable.R
 import com.hpu.timetable.data.CourseInstance
+import com.hpu.timetable.data.Notice
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -76,6 +83,9 @@ fun HomeScreen(
     hwPending: Int? = null,
     hwRefreshing: Boolean = false,
     onRefreshHomework: () -> Unit = {},
+    notice: Notice? = null,
+    noticeUnread: Boolean = false,
+    onOpenNotice: () -> Unit = {},
 ) {
     var minuteTick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
@@ -99,11 +109,32 @@ fun HomeScreen(
             .padding(horizontal = 20.dp),
     ) {
         Spacer(Modifier.height(20.dp))
-        Text(
-            greeting() + "，" + name.ifBlank { "同学" },
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                greeting() + "，" + name.ifBlank { "同学" },
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (notice != null) {
+                IconButton(onClick = onOpenNotice) {
+                    BadgedBox(
+                        badge = {
+                            if (noticeUnread) Badge(containerColor = MaterialTheme.colorScheme.error)
+                        },
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_campaign),
+                            contentDescription = "公告",
+                            tint = if (noticeUnread) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(4.dp))
         Text(
             "第 " + currentWeek + " 周 · " + DAY_CN[todayDay - 1] + " · " + today.monthValue + " 月 " + today.dayOfMonth + " 日",

@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.hpu.timetable.data.CourseInstance
+import com.hpu.timetable.data.NoticeRepository
 import com.hpu.timetable.data.Settings
 import com.hpu.timetable.data.TimetableRepository
 import com.hpu.timetable.data.UserStore
@@ -124,6 +125,8 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
     var askLab by remember { mutableStateOf(false) }
     var quote by remember { mutableStateOf<com.hpu.timetable.ui.home.Quote?>(null) }
     var quoteTick by remember { mutableIntStateOf(0) }
+    var notices by remember { mutableStateOf(NoticeRepository.loadForDisplay(ctx)) }
+    var noticeReadIds by remember { mutableStateOf(Settings.noticeReadIds(ctx)) }
 
     var exams by remember { mutableStateOf(TimetableRepository.loadExams(ctx)) }
     var subPage by remember { mutableStateOf<String?>(null) }
@@ -189,6 +192,9 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
     LaunchedEffect(quoteTick) {
         quote = com.hpu.timetable.ui.home.fetchHitokoto()
     }
+    LaunchedEffect(Unit) {
+        NoticeRepository.refresh(ctx).onSuccess { notices = it }
+    }
     val scope = rememberCoroutineScope()
 
     var labImporting by remember { mutableStateOf(false) }
@@ -251,31 +257,13 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
 
     LaunchedEffect(Unit) {
         TimetableRepository.init(ctx)
-        val cached = TimetableRepository.loadCached(ctx)
-        if (cached != null) {
-            state = UiState.Ready(TimetableRepository.mergeLab(ctx, cached))
-            return@LaunchedEffect
+        if (UserStore.isLoggedIn(ctx)) {
+            // 登录状态与课程缓存分开：没有课表也先进入，用户可稍后手动更新
+            val cached = TimetableRepository.loadCached(ctx)
+            state = UiState.Ready(TimetableRepository.mergeLab(ctx, cached.orEmpty()))
+        } else {
+            state = UiState.NeedLogin
         }
-        val jar = PersistCookieJar(ctx)
-        JwClient(jar).fetchCourses()
-            .onSuccess { list ->
-                TimetableRepository.save(ctx, list)
-                if (UserStore.account(ctx).isBlank()) {
-                    com.hpu.timetable.data.auth.CasClient(jar).fetchUserInfo()?.let { (acc, name) ->
-                        UserStore.save(ctx, acc, name)
-                    }
-                }
-                state = UiState.Ready(TimetableRepository.mergeLab(ctx, list))
-            }
-            .onFailure { e ->
-                state = UiState.NeedLogin
-                if (e.message?.contains("redirect", true) == true) {
-                    android.widget.Toast.makeText(
-                        ctx, "登录已过期，请重登",
-                        android.widget.Toast.LENGTH_LONG,
-                    ).show()
-                }
-            }
     }
 
     // 用 Surface 而不是 Box：Surface 会把 contentColor 设成 onBackground，
@@ -284,14 +272,27 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
     when (val s = state) {
         is UiState.Loading -> LoadingScreen()
 
-        is UiState.NeedLogin -> LoginScreen { list ->
+        is UiState.NeedLogin -> LoginScreen { list, syncError ->
             sessionExpired = false
             com.hpu.timetable.data.auth.SessionGate.expired = false
             Settings.setLastAutoLogin(ctx, 0L)
-            TimetableRepository.save(ctx, list)
-            state = UiState.Ready(TimetableRepository.mergeLab(ctx, list))
-            // 还没导入过实验课表时，主动问一句
-            if (TimetableRepository.loadLabRaw(ctx) == null) askLab = true
+            if (list != null) TimetableRepository.save(ctx, list)
+            val cached = TimetableRepository.loadCached(ctx)
+            val base = list ?: cached.orEmpty()
+            // 切账号时缓存文件已被清掉；这里统一重读，避免内存里残留上一账号的考试
+            exams = TimetableRepository.loadExams(ctx)
+            state = UiState.Ready(TimetableRepository.mergeLab(ctx, base))
+            if (syncError != null) {
+                val kept = list == null && cached != null
+                val suffix = if (kept) "，已保留上次课表" else "，本地暂无课表"
+                android.widget.Toast.makeText(
+                    ctx,
+                    "登录成功，但课表同步失败：" + syncError + suffix + "；可稍后在我的页更新",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
+            // 只有课表同步成功才主动问实验课；故障时先不叠加入口
+            if (syncError == null && TimetableRepository.loadLabRaw(ctx) == null) askLab = true
         }
 
         // 子页面用直切（之前用 AnimatedContent 包住会导致新页面已创建但屏幕不更新）
@@ -364,6 +365,8 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
                     }
                 },
                 onLogout = {
+                    // 先记下实验课属于哪个账号，再清登录态；同账号重登仍可合并
+                    TimetableRepository.stampLabOwner(ctx, UserStore.account(ctx))
                     PersistCookieJar(ctx).clear()
                     UserStore.clear(ctx)
                     ctx.filesDir.resolve("courses.json").delete()
@@ -385,6 +388,17 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
         "about" -> {
             com.hpu.timetable.ui.profile.AboutScreen(
                 onBack = { subPage = "settings" },
+            )
+        }
+        "notices" -> {
+            com.hpu.timetable.ui.home.NoticeScreen(
+                notices = notices,
+                readIds = noticeReadIds,
+                onBack = { subPage = null },
+                onRead = { id ->
+                    Settings.markNoticeRead(ctx, id)
+                    noticeReadIds = Settings.noticeReadIds(ctx)
+                },
             )
         }
         "importing" -> com.hpu.timetable.ui.lab.LabImportScreen(
@@ -491,6 +505,9 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
                                 android.widget.Toast.makeText(ctx, "没解析到考试数据", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         },
+                        notice = notices.firstOrNull(),
+                        noticeUnread = notices.any { it.id !in noticeReadIds },
+                        onOpenNotice = { subPage = "notices" },
                     )
                     1 -> ScheduleScreen(s.courses)
                     else -> ProfileScreen(
