@@ -1,10 +1,19 @@
 [
   {
+    "id": "2026-11-26-recovered",
+    "title": "教务课表与宿舍电量已恢复",
+    "body": "PC 教务课表和微后勤电量接口已恢复，更新课表、刷新电量与用电记录可正常使用。",
+    "date": "2026-11-26",
+    "pinned": true,
+    "enabled": true,
+    "link": ""
+  },
+  {
     "id": "2026-11-25-whq-outage",
     "title": "宿舍电量接口异常",
     "body": "微后勤电量接口目前异常，宿舍电量余额和近 14 天用电记录可能无法刷新；等待学校修复。",
     "date": "2026-11-25",
-    "pinned": true,
+    "pinned": false,
     "enabled": true,
     "link": ""
   },
