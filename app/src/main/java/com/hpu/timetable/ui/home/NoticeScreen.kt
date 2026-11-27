@@ -46,6 +46,8 @@ import com.hpu.timetable.ui.pressable
 fun NoticeScreen(
     notices: List<Notice>,
     readIds: Set<String>,
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
     onBack: () -> Unit,
     onRead: (String) -> Unit,
 ) {
@@ -58,6 +60,10 @@ fun NoticeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onBack) { Text("‹ 返回", fontSize = 14.sp) }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onRefresh, enabled = !refreshing) {
+                Text(if (refreshing) "刷新中…" else "刷新", fontSize = 13.sp)
+            }
         }
         Text(
             "公告",

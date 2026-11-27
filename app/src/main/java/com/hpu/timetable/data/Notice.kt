@@ -27,6 +27,8 @@ data class Notice(
  */
 object NoticeRepository {
     private const val CACHE_NAME = "notice.json"
+    private const val API_URL =
+        "https://api.github.com/repos/ZYH-officials/HpuPocket/contents/docs/notice.json?ref=main"
     private const val RAW_URL =
         "https://raw.githubusercontent.com/ZYH-officials/HpuPocket/main/docs/notice.json"
     private const val CDN_URL =
@@ -59,9 +61,14 @@ object NoticeRepository {
     suspend fun refresh(ctx: Context): Result<List<Notice>> = withContext(Dispatchers.IO) {
         com.hpu.timetable.data.catching {
             var lastError: Exception? = null
-            for (url in listOf(RAW_URL, CDN_URL)) {
+            val sources = listOf(
+                Triple(API_URL, "application/vnd.github.raw", true),
+                Triple(RAW_URL, "application/json", false),
+                Triple(CDN_URL, "application/json", false),
+            )
+            for ((url, accept, isApi) in sources) {
                 val raw = try {
-                    fetch(url)
+                    fetch(url, accept, isApi)
                 } catch (e: Exception) {
                     lastError = e
                     continue
@@ -79,13 +86,13 @@ object NoticeRepository {
         }
     }
 
-    private fun fetch(url: String): String {
-        val req = Request.Builder()
+    private fun fetch(url: String, accept: String, isApi: Boolean): String {
+        val builder = Request.Builder()
             .url(url)
-            .header("Accept", "application/json")
+            .header("Accept", accept)
             .header("User-Agent", "HpuPocket")
-            .build()
-        return client.newCall(req).execute().use { resp ->
+        if (isApi) builder.header("X-GitHub-Api-Version", "2022-11-28")
+        return client.newCall(builder.build()).execute().use { resp ->
             if (!resp.isSuccessful) error("公告 HTTP " + resp.code)
             val body = resp.body?.string().orEmpty()
             if (body.length > 200_000) error("公告内容过大")
