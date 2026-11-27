@@ -127,6 +127,7 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
     var quoteTick by remember { mutableIntStateOf(0) }
     var notices by remember { mutableStateOf(NoticeRepository.loadForDisplay(ctx)) }
     var noticeReadIds by remember { mutableStateOf(Settings.noticeReadIds(ctx)) }
+    var noticeRefreshing by remember { mutableStateOf(false) }
 
     var exams by remember { mutableStateOf(TimetableRepository.loadExams(ctx)) }
     var subPage by remember { mutableStateOf<String?>(null) }
@@ -193,7 +194,9 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
         quote = com.hpu.timetable.ui.home.fetchHitokoto()
     }
     LaunchedEffect(Unit) {
+        noticeRefreshing = true
         NoticeRepository.refresh(ctx).onSuccess { notices = it }
+        noticeRefreshing = false
     }
     val scope = rememberCoroutineScope()
 
@@ -394,6 +397,24 @@ private fun AppRoot(themeMode: String, onThemeChange: (String) -> Unit) {
             com.hpu.timetable.ui.home.NoticeScreen(
                 notices = notices,
                 readIds = noticeReadIds,
+                refreshing = noticeRefreshing,
+                onRefresh = {
+                    if (!noticeRefreshing) {
+                        noticeRefreshing = true
+                        scope.launch {
+                            NoticeRepository.refresh(ctx)
+                                .onSuccess { notices = it }
+                                .onFailure { e ->
+                                    android.widget.Toast.makeText(
+                                        ctx,
+                                        "公告刷新失败：" + (e.message ?: "网络错误"),
+                                        android.widget.Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            noticeRefreshing = false
+                        }
+                    }
+                },
                 onBack = { subPage = null },
                 onRead = { id ->
                     Settings.markNoticeRead(ctx, id)
